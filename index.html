@@ -570,11 +570,13 @@ async function fitFace(p) {
   const src = baseSrc(p), r = face.detect(src);
   const d = (r.detections || []).map(x => x.boundingBox).sort((a, b) => b.width * b.height - a.width * a.height)[0];
   if (!d) return false;
-  // passport framing: the detected face box fills about 55% of the frame height, a little above centre
-  const a = p.w / p.h, sh0 = Math.min(src.height, src.width / a), want = d.height / .55;
+  // passport framing: the face box (brow to chin) is half the frame height; the crown of the head,
+  // about 30% of a face above the box, sits 8% below the top edge
+  const a = p.w / p.h, sh0 = Math.min(src.height, src.width / a), want = d.height / .5;
   p.zoom = clamp(sh0 / want, 1, 4);
+  const top = d.originY - .3 * d.height - .08 * want;
   p.fx = clamp((d.originX + d.width / 2) / src.width, 0, 1);
-  p.fy = clamp((d.originY + d.height / 2 + .04 * want) / src.height, 0, 1);
+  p.fy = clamp((top + want / 2) / src.height, 0, 1);
   return true;
 }
 function setStatus(p, msg) {
