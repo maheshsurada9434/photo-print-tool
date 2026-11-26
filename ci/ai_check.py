@@ -1,5 +1,6 @@
 # Temporary check (not part of the app): runs the on-device AI features against a real face photo.
 import subprocess, time, os
+pg = None
 from playwright.sync_api import sync_playwright
 os.makedirs('shots', exist_ok=True)
 srv = subprocess.Popen(['python3', '-m', 'http.server', '8800'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1)
@@ -23,6 +24,10 @@ try:
         pg.wait_for_timeout(800); pg.screenshot(path='shots/2-fitted.png')
         pg.locator('.item').first.locator('.thumb').click(); pg.wait_for_timeout(600); pg.screenshot(path='shots/3-dialog.png')
         b.close()
+except Exception as e:
+    import traceback; log.append('EXCEPTION ' + traceback.format_exc()[-1500:])
+    try: pg.screenshot(path='shots/error.png')
+    except Exception: pass
 finally:
     srv.kill()
     open('shots/log.txt', 'w').write('\n'.join(log)); print('\n'.join(log))
