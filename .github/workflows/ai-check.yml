@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
       - run: pip install playwright==1.48.0 && python -m playwright install --with-deps chromium
       - run: curl -fsSL -A "Mozilla/5.0" -o face.jpg https://thispersondoesnotexist.com/ && file face.jpg
       - run: python ci/ai_check.py
