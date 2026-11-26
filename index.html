@@ -6,6 +6,11 @@
 <title>Photo Print Sheet Maker</title>
 <meta name="description" content="Arrange passport, stamp, PAN and visa photos on one print-ready sheet. Free, works in your browser, photos never leave your device.">
 <meta name="theme-color" content="#eef1fb">
+<meta name="author" content="Mahesh Surada">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Photo Print">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234338ca'/%3E%3Crect x='7' y='6' width='8' height='10' rx='1.5' fill='%23fff'/%3E%3Crect x='17' y='6' width='8' height='10' rx='1.5' fill='%23fff' opacity='.75'/%3E%3Crect x='7' y='18' width='8' height='10' rx='1.5' fill='%23fff' opacity='.75'/%3E%3Crect x='17' y='18' width='8' height='10' rx='1.5' fill='%23fff' opacity='.5'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -149,6 +154,34 @@
   .busy { position: fixed; inset: 0; background: rgba(238,241,251,.7); display: grid; place-items: center; z-index: 30; font-weight: 600; }
   footer { color: var(--faint); font-size: 13px; text-align: center; padding: 0 0 36px; }
 
+  .tabs { display: inline-flex; gap: 4px; background: var(--soft); border-radius: 999px; padding: 4px; }
+  .tabs button { border: 0; background: none; border-radius: 999px; padding: 6px 16px; font-weight: 600; font-size: 14px; color: var(--muted); min-height: 36px; }
+  .tabs button[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 4px rgba(20,25,54,.12); }
+  .ready { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ready button { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 7px 11px; font-size: 13px; font-weight: 600; text-align: left; line-height: 1.25; min-height: 44px; }
+  .ready button small { display: block; color: var(--faint); font-weight: 500; font-size: 11.5px; }
+  .ready button:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .row-b { display: flex; gap: 8px; align-items: end; }
+  .row-b > * { flex: 1; }
+  .status { font-size: 13px; color: var(--accent); font-weight: 600; margin: 0; }
+  .status:empty { display: none; }
+  .status.err { color: var(--danger); }
+  .dlg { max-height: calc(100dvh - 40px); overflow-y: auto; }
+  .dlg .tools-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dlg .tools-row .pill { min-height: 38px; }
+  .dlg .sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+  #formTool { margin-bottom: 40px; }
+  .ft { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+  @media (max-width: 820px) { .ft { grid-template-columns: 1fr; } }
+  .ft .result { background: repeating-conic-gradient(#eef1f8 0 25%, #fff 0 50%) 0 0 / 18px 18px; border-radius: 14px; min-height: 220px; display: grid; place-items: center; padding: 18px; border: 1px solid var(--line); }
+  .ft .result img { max-width: 100%; max-height: 300px; box-shadow: 0 10px 30px -12px rgba(20,25,54,.4); }
+  .ft .facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .ft .facts span { background: var(--soft); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ft .facts .ok { color: var(--ok); background: #e9f7ee; }
+  .ft .facts .bad { color: var(--danger); background: var(--danger-soft); }
+  .credit { color: var(--muted); font-weight: 600; }
+  .credit a { color: var(--accent); text-decoration: none; }
+  .install { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 15; }
   #printArea { display: none; }
   @media print {
     body > *:not(#printArea) { display: none !important; }
@@ -196,7 +229,7 @@
     </label>
     <div class="qfoot" id="qFoot" hidden>
       <button class="link danger" id="clearQ"><svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg>Clear queue</button>
-      <span class="hint">Tap a photo to move or zoom it</span>
+      <button class="link" id="fitAll">Auto-fit all faces</button>
     </div>
   </section>
 
@@ -214,8 +247,12 @@
     <div class="warn" id="tooBig" hidden></div>
 
     <div class="controls">
+      <div class="span"><span class="lbl">Ready layouts</span><div class="ready" id="ready"></div></div>
       <label class="field"><span class="lbl">Paper size</span>
         <select id="paper"></select></label>
+      <div><span class="lbl">Orientation</span><div class="seg" role="group" aria-label="Orientation" style="width:100%;display:flex"><button data-orient="portrait" style="flex:1">Portrait</button><button data-orient="landscape" style="flex:1">Landscape</button></div></div>
+      <label class="field"><span class="lbl">Photo border</span>
+        <select id="border"><option value="none">No border</option><option value="white">Thin white border</option><option value="black">Thin black border</option></select></label>
       <div><span class="lbl">Margins and gaps</span><button class="btn" id="resetLayout" style="width:100%;min-height:42px"><svg class="ico" aria-hidden="true"><use href="#i-reset"/></svg>Reset default</button></div>
       <label class="check span"><input type="checkbox" id="cut"> Cut lines (dashed line between photos)</label>
       <label class="range"><span class="top">Gap across <b id="gapXv"></b></span><input type="range" id="gapX" min="0" max="10" step="0.5"></label>
@@ -223,6 +260,7 @@
       <label class="range"><span class="top">Margin top <b id="mTopv"></b></span><input type="range" id="mTop" min="0" max="25" step="0.5"></label>
       <label class="range"><span class="top">Margin left <b id="mLeftv"></b></span><input type="range" id="mLeft" min="0" max="25" step="0.5"></label>
     </div>
+    <button class="btn" id="fill" style="width:100%;margin-top:14px" disabled>Fill empty space on the last page</button>
     <div class="actions">
       <button class="btn" id="print" disabled><svg class="ico" aria-hidden="true"><use href="#i-print"/></svg>Print</button>
       <button class="btn primary" id="download" disabled><svg class="ico" aria-hidden="true"><use href="#i-dl"/></svg>Download PDF</button>
@@ -230,15 +268,58 @@
     <p class="note">Print at 100% / “Actual size”, not “Fit to page”, so photos come out at the exact size.</p>
   </section>
 </main>
-<footer class="wrap">Free and private: everything happens in your browser. Nothing is uploaded.</footer>
+<section class="wrap" id="formTool" aria-labelledby="fTitle">
+  <div class="panel">
+    <div class="ph"><span class="step">Tool</span><h2 id="fTitle">Exam form photo &amp; signature resizer</h2></div>
+    <p class="hint" style="margin:-6px 0 14px">Make a photo or signature match an online form's size rules, in pixels and KB. Always check the exact rules in your exam notice.</p>
+    <div class="ft">
+      <div style="display:grid;gap:12px;align-content:start">
+        <div class="tabs" role="tablist"><button role="tab" data-kind="photo" aria-selected="true">Photo</button><button role="tab" data-kind="sign" aria-selected="false">Signature</button></div>
+        <div class="row-b">
+          <label class="drop" style="margin:0;padding:16px"><input type="file" id="fFile" accept="image/jpeg,image/png,image/webp" hidden><b style="font-size:15px" id="fPick">Choose a photo</b><span>or paste it here</span></label>
+        </div>
+        <label class="field" id="fFromWrap">Or use a photo from the print queue<select id="fFrom"></select></label>
+        <label class="field">Size rule<select id="fPreset"></select></label>
+        <div class="fields">
+          <label class="field">Width (px)<input type="number" id="fW" min="20" max="4000" inputmode="numeric"></label>
+          <label class="field">Height (px)<input type="number" id="fH" min="20" max="4000" inputmode="numeric"></label>
+          <label class="field">Min size (KB)<input type="number" id="fMin" min="0" max="5000" inputmode="numeric"></label>
+          <label class="field">Max size (KB)<input type="number" id="fMax" min="1" max="5000" inputmode="numeric"></label>
+        </div>
+        <label class="check" id="fCleanWrap" hidden><input type="checkbox" id="fClean" checked> Clean up: pure dark ink on a white background</label>
+        <div class="row"><button class="btn" id="fEdit" disabled>Move, zoom and touch up</button></div>
+      </div>
+      <div>
+        <div class="result" id="fResult"><p class="hint" id="fEmpty">Your resized file appears here.</p><img id="fImg" alt="Resized file" hidden></div>
+        <div class="facts" id="fFacts"></div>
+        <button class="btn primary" id="fSave" style="width:100%;margin-top:12px" disabled>Download JPG</button>
+      </div>
+    </div>
+  </div>
+</section>
+<footer class="wrap">Free and private: everything happens in your browser, nothing is uploaded.<br><span class="credit">Made by <a href="https://github.com/maheshsurada9434" rel="author">Mahesh Surada</a></span></footer>
+<button class="btn primary install" id="installBtn" hidden>Install app</button>
 
 <dialog id="adjust" aria-labelledby="adjTitle">
   <form method="dialog" class="dlg">
-    <h3 id="adjTitle">Move and zoom</h3>
-    <canvas class="frame" id="adjCanvas" width="300" height="380"></canvas>
-    <label class="range"><span class="top">Zoom <b id="zoomV"></b></span><input type="range" id="zoom" min="1" max="3" step="0.01"></label>
-    <p class="hint">Drag the photo to centre the face. The frame shows exactly what prints.</p>
-    <div class="ed-foot"><button class="link" value="reset" id="adjReset" type="button">Centre again</button><button class="btn primary" value="ok">Done</button></div>
+    <h3 id="adjTitle">Edit photo</h3>
+    <canvas class="frame" id="adjCanvas" width="300" height="380" aria-label="Drag to move the photo"></canvas>
+    <div class="tools-row">
+      <button class="pill" type="button" id="adjFace">Auto-fit face</button>
+      <button class="pill" type="button" id="adjAuto">Auto-enhance</button>
+      <button class="pill" type="button" id="adjRotL" aria-label="Rotate left">↺ Rotate</button>
+      <button class="pill" type="button" id="adjRotR" aria-label="Rotate right">↻</button>
+    </div>
+    <p class="status" id="adjStatus" role="status"></p>
+    <div class="sliders">
+      <label class="range"><span class="top">Zoom <b id="zoomV"></b></span><input type="range" id="zoom" min="1" max="4" step="0.01"></label>
+      <label class="range"><span class="top">Straighten <b id="tiltV"></b></span><input type="range" id="tilt" min="-15" max="15" step="0.5"></label>
+      <label class="range"><span class="top">Brightness <b id="brightV"></b></span><input type="range" id="bright" min="-50" max="50" step="1"></label>
+      <label class="range"><span class="top">Contrast <b id="contrastV"></b></span><input type="range" id="contrast" min="-50" max="50" step="1"></label>
+      <label class="range"><span class="top">Colour <b id="satV"></b></span><input type="range" id="sat" min="-50" max="50" step="1"></label>
+    </div>
+    <p class="hint">Drag the photo to move it. The frame shows exactly what prints.</p>
+    <div class="ed-foot"><button class="link" type="button" id="adjReset">Undo edits</button><button class="btn primary" value="ok">Done</button></div>
   </form>
 </dialog>
 
@@ -247,6 +328,7 @@
 
 <script>
 'use strict';
+/* Photo Print Sheet Maker, made by Mahesh Surada. */
 /* ---------- constants ---------- */
 const MM_PER_IN = 25.4, DPI = 300, PX_PER_MM = DPI / MM_PER_IN, MAX_SRC = 1800;
 // width × height in mm. "5-pic"/"6-pic" = how many fit across an A4 sheet.
@@ -255,7 +337,13 @@ const PRESETS = [
   { id: 'p6', name: '6-Pic Passport', w: 32, h: 41 },
   { id: 'stamp', name: 'Stamp', w: 20, h: 25 },
   { id: 'pan', name: 'Voter / PAN', w: 25, h: 35 },
-  { id: 'usv', name: 'US Visa', w: 50.8, h: 50.8 },
+  { id: 'usv', name: 'US Visa / OCI', w: 50.8, h: 50.8 },
+  { id: 'schengen', name: 'UK / Schengen visa', w: 35, h: 45 },
+  { id: 'canada', name: 'Canada visa', w: 50, h: 70 },
+  { id: 'china', name: 'China visa', w: 33, h: 48 },
+  { id: 'sign', name: 'Signature box', w: 35, h: 15 },
+  { id: 'thumb', name: 'Thumb impression', w: 25, h: 25 },
+  { id: 'card', name: 'ID / PVC card', w: 85.6, h: 54 },
 ];
 const PAPERS = [
   { id: 'a4', name: 'A4 (210 × 297 mm)', w: 210, h: 297 },
@@ -265,11 +353,35 @@ const PAPERS = [
   { id: 'letter', name: 'Letter (8.5 × 11 inch)', w: 215.9, h: 279.4 },
   { id: 'legal', name: 'Legal (8.5 × 14 inch)', w: 215.9, h: 355.6 },
 ];
+// One tap: paper, margins and photo size chosen so the counts below fill the sheet.
+const READY = [
+  { name: '8 passport', sub: '4×6 · 3.5×4.5 cm', paper: '4x6', orient: 'landscape', w: 35, h: 45, count: 8, gapX: 2, gapY: 2, mTop: 4.5, mLeft: 3 },
+  { name: '30 passport', sub: 'A4 · 3.5×4.5 cm', paper: 'a4', orient: 'portrait', w: 35, h: 45, count: 30, gapX: 2, gapY: 2, mTop: 8.5, mLeft: 13.5 },
+  { name: '36 passport', sub: 'A4 · 3.2×4.1 cm', paper: 'a4', orient: 'portrait', w: 32, h: 41, count: 36, gapX: 2, gapY: 2, mTop: 20.5, mLeft: 4 },
+  { name: '90 stamp', sub: 'A4 · 2×2.5 cm', paper: 'a4', orient: 'portrait', w: 20, h: 25, count: 90, gapX: 2, gapY: 2, mTop: 14.5, mLeft: 7 },
+  { name: '12 PAN size', sub: '4×6 · 2.5×3.5 cm', paper: '4x6', orient: 'portrait', w: 25, h: 35, count: 12, gapX: 2, gapY: 2, mTop: 3, mLeft: 11 },
+  { name: '6 US visa', sub: '4×6 · 2×2 inch', paper: '4x6', orient: 'portrait', w: 50.8, h: 50.8, count: 6, gapX: 0, gapY: 0, mTop: 0, mLeft: 0 },
+];
 const BGS = [
   { id: '', name: 'Original' }, { id: '#ffffff', name: 'White' }, { id: '#dbeafe', name: 'Light blue' },
   { id: '#7cc0f0', name: 'Sky blue' }, { id: '#e5e7eb', name: 'Light grey' }, { id: '#c62828', name: 'Red' },
 ];
-const LAYOUT_DEFAULT = { paper: 'a4', gapX: 2, gapY: 2, mTop: 4, mLeft: 4, cut: true };
+const LAYOUT_DEFAULT = { paper: 'a4', orient: 'portrait', gapX: 2, gapY: 2, mTop: 4, mLeft: 4, cut: true, border: 'none' };
+const EDIT_DEFAULT = { zoom: 1, fx: .5, fy: .42, rot: 0, tilt: 0, bright: 0, contrast: 0, sat: 0 };
+// Form rules commonly seen in Indian exam notices. Shown as a starting point; the notice is the authority.
+const FORM_PRESETS = {
+  photo: [
+    { name: 'Bank exams (IBPS / SBI style): 200×230 px, 20–50 KB', w: 200, h: 230, min: 20, max: 50 },
+    { name: 'SSC style: 3.5×4.5 cm (413×531 px), 20–50 KB', w: 413, h: 531, min: 20, max: 50 },
+    { name: 'Square 600×600 px, 20–300 KB', w: 600, h: 600, min: 20, max: 300 },
+    { name: 'Custom', custom: true },
+  ],
+  sign: [
+    { name: 'Bank exams (IBPS / SBI style): 140×60 px, 10–20 KB', w: 140, h: 60, min: 10, max: 20 },
+    { name: 'SSC style: 4×2 cm (472×236 px), 10–20 KB', w: 472, h: 236, min: 10, max: 20 },
+    { name: 'Custom', custom: true },
+  ],
+};
 
 /* ---------- state ---------- */
 const store = {
@@ -279,7 +391,7 @@ const store = {
 let layout = { ...LAYOUT_DEFAULT, ...store.get('layout', {}) };
 let defSize = store.get('defSize', { w: 32, h: 41, copies: 6 });
 let unit = store.get('unit', 'cm');
-const photos = [];   // { id, name, src (canvas), w, h, copies, bg, tol, cap:{name,dob}, zoom, fx, fy, ver }
+const photos = [];   // { id, name, src (canvas), w, h, copies, bg, bgMode, tol, cap:{name,dob}, ...EDIT_DEFAULT }
 let open = null;     // { id, panel: 'size'|'bg'|'cap' }
 let page = 0, pages = [];
 let uid = 0;
@@ -290,46 +402,84 @@ const ico = id => `<svg class="ico" aria-hidden="true"><use href="#i-${id}"/></s
 const fmtLen = mm => unit === 'cm' ? +(mm / 10).toFixed(2) : +(mm / MM_PER_IN).toFixed(2);
 const sizeLabel = p => `${fmtLen(p.w)} × ${fmtLen(p.h)} ${unit === 'cm' ? 'cm' : 'in'}`;
 const byId = id => photos.find(p => p.id === id);
-function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2600); }
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2800); }
+function newCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 
 /* ---------- loading photos ---------- */
-async function addFiles(files) {
-  const imgs = [...files].filter(f => /^image\/(jpeg|png|webp)$/.test(f.type));
-  if (!imgs.length) { if (files.length) toast('Choose JPG or PNG photos'); return; }
-  for (const f of imgs) {
-    try {
-      const bmp = await createImageBitmap(f, { imageOrientation: 'from-image' }).catch(() => loadImg(f));
-      const k = Math.min(1, MAX_SRC / Math.max(bmp.width, bmp.height));
-      const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
-      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-      photos.push({ id: ++uid, name: f.name.replace(/\.[^.]+$/, '') || 'photo', src: c, w: defSize.w, h: defSize.h, copies: defSize.copies,
-        bg: '', tol: 32, cap: { name: '', dob: '' }, zoom: 1, fx: .5, fy: .42, ver: 0 });
-    } catch { toast(`Couldn't open ${f.name}`); }
-  }
-  renderQueue(); update();
-  toast(imgs.length === 1 ? 'Photo added' : `${imgs.length} photos added`);
+async function fileToCanvas(f) {
+  const bmp = await createImageBitmap(f, { imageOrientation: 'from-image' }).catch(() => loadImg(f));
+  const k = Math.min(1, MAX_SRC / Math.max(bmp.width, bmp.height));
+  const c = newCanvas(Math.round(bmp.width * k), Math.round(bmp.height * k));
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return c;
 }
 function loadImg(file) {
   return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
 }
+function makePhoto(name, c, extra = {}) {
+  return { id: ++uid, name, src: c, w: defSize.w, h: defSize.h, copies: defSize.copies, bg: '', bgMode: 'ai', tol: 32, cap: { name: '', dob: '' }, ...EDIT_DEFAULT, ...extra };
+}
+async function addFiles(files) {
+  const imgs = [...files].filter(f => /^image\/(jpeg|png|webp)$/.test(f.type));
+  if (!imgs.length) { if (files.length) toast('Choose JPG or PNG photos'); return; }
+  for (const f of imgs) {
+    try { photos.push(makePhoto(f.name.replace(/\.[^.]+$/, '') || 'photo', await fileToCanvas(f))); }
+    catch { toast(`Couldn't open ${f.name}`); }
+  }
+  renderQueue(); update(); refreshFormFrom();
+  toast(imgs.length === 1 ? 'Photo added' : `${imgs.length} photos added`);
+}
 
-/* ---------- background replacement ----------
-   Works for photos taken against a plain wall: grows a region from the top and side edges over pixels whose colour is
-   close to the wall colour, then blends the new colour in with a soft edge. Cached per photo. */
-function replaceBg(p) {
-  const key = p.bg + '|' + p.tol;
-  if (p._bgKey === key) return p._bg;
-  const s = p.src, W = s.width, H = s.height;
-  const d = s.getContext('2d').getImageData(0, 0, W, H), px = d.data;
-  // wall colour = median of the top band and the upper side strips
-  const samp = [];
-  const take = (x, y) => { const i = (y * W + x) * 4; samp.push([px[i], px[i + 1], px[i + 2]]); };
+/* ---------- step 1 of the pipeline: rotate, straighten and tone ---------- */
+const geoKey = p => `${p.rot}|${p.tilt}`;
+const toneKey = p => `${p.bright}|${p.contrast}|${p.sat}`;
+function baseSrc(p) {
+  const key = geoKey(p) + '|' + toneKey(p);
+  if (key === '0|0|0|0|0') return p.src;
+  if (p._baseKey === key) return p._base;
+  const s = p.src, quarter = ((p.rot % 360) + 360) % 360 / 90;
+  const W = quarter % 2 ? s.height : s.width, H = quarter % 2 ? s.width : s.height;
+  const c = newCanvas(W, H), ctx = c.getContext('2d');
+  // straighten: rotate a little and scale up just enough that no empty corners show
+  const t = p.tilt * Math.PI / 180, grow = Math.abs(Math.cos(t)) + Math.abs(Math.sin(t)) * Math.max(W / H, H / W);
+  ctx.translate(W / 2, H / 2); ctx.rotate(quarter * Math.PI / 2 + t); ctx.scale(grow, grow);
+  ctx.drawImage(s, -s.width / 2, -s.height / 2);
+  if (p.bright || p.contrast || p.sat) {
+    const d = ctx.getImageData(0, 0, W, H), px = d.data;
+    const cf = 1 + p.contrast / 100, b = p.bright * 1.5, sf = 1 + p.sat / 100;
+    for (let i = 0; i < px.length; i += 4) {
+      let r = (px[i] - 128) * cf + 128 + b, g = (px[i + 1] - 128) * cf + 128 + b, bl = (px[i + 2] - 128) * cf + 128 + b;
+      const l = .299 * r + .587 * g + .114 * bl;
+      px[i] = l + (r - l) * sf; px[i + 1] = l + (g - l) * sf; px[i + 2] = l + (bl - l) * sf;
+    }
+    ctx.putImageData(d, 0, 0);
+  }
+  p._baseKey = key; p._base = c;
+  return c;
+}
+function autoEnhance(p) {
+  const s = p.src, k = Math.min(1, 300 / Math.max(s.width, s.height)), c = newCanvas(Math.round(s.width * k), Math.round(s.height * k));
+  c.getContext('2d').drawImage(s, 0, 0, c.width, c.height);
+  const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, lum = [];
+  for (let i = 0; i < px.length; i += 16) lum.push(.299 * px[i] + .587 * px[i + 1] + .114 * px[i + 2]);
+  lum.sort((a, b) => a - b);
+  const lo = lum[Math.floor(lum.length * .02)], hi = lum[Math.floor(lum.length * .98)];
+  const cf = clamp(235 / Math.max(40, hi - lo), 1, 1.4), mid = (lo + hi) / 2;
+  Object.assign(p, { contrast: Math.round((cf - 1) * 100), bright: Math.round(clamp((140 - ((mid - 128) * cf + 128)) / 1.5, -30, 30)), sat: 8 });
+}
+
+/* ---------- step 2: background ---------- */
+// Plain-wall method: grow a region from the top and side edges over pixels close to the wall colour.
+function wallMask(src, tol) {
+  const W = src.width, H = src.height, px = src.getContext('2d').getImageData(0, 0, W, H).data;
+  const samp = [], take = (x, y) => { const i = (y * W + x) * 4; samp.push([px[i], px[i + 1], px[i + 2]]); };
   for (let x = 0; x < W; x += 3) { take(x, 1); take(x, 4); }
   for (let y = 0; y < H * .55; y += 3) { take(1, y | 0); take(W - 2, y | 0); }
   const med = [0, 1, 2].map(k => samp.map(v => v[k]).sort((a, b) => a - b)[samp.length >> 1]);
-  const tol2 = (p.tol * 2.2) ** 2;
+  const tol2 = (tol * 2.2) ** 2;
   const close = i => { const r = px[i] - med[0], g = px[i + 1] - med[1], b = px[i + 2] - med[2]; return r * r + g * g + b * b <= tol2; };
-  const mask = new Uint8Array(W * H), stack = [];
+  const mask = new Float32Array(W * H), stack = [];
   const seed = (x, y) => { const n = y * W + x; if (!mask[n] && close(n * 4)) { mask[n] = 1; stack.push(n); } };
   for (let x = 0; x < W; x++) seed(x, 0);
   for (let y = 0; y < H * .8; y++) { seed(0, y); seed(W - 1, y); }
@@ -337,30 +487,109 @@ function replaceBg(p) {
     const n = stack.pop(), x = n % W, y = (n / W) | 0;
     if (x > 0) seed(x - 1, y); if (x < W - 1) seed(x + 1, y); if (y > 0) seed(x, y - 1); if (y < H - 1) seed(x, y + 1);
   }
-  // soften the edge: 2-pass box blur of the mask
-  const r = Math.max(1, Math.round(Math.min(W, H) / 400)), a = new Float32Array(W * H), b = new Float32Array(W * H);
-  for (let i = 0; i < mask.length; i++) a[i] = mask[i];
-  for (let y = 0; y < H; y++) { let acc = 0; for (let x = -r; x < W; x++) { if (x + r < W) acc += a[y * W + x + r]; if (x - r - 1 >= 0) acc -= a[y * W + x - r - 1]; if (x >= 0) b[y * W + x] = acc / (2 * r + 1); } }
-  for (let x = 0; x < W; x++) { let acc = 0; for (let y = -r; y < H; y++) { if (y + r < H) acc += b[(y + r) * W + x]; if (y - r - 1 >= 0) acc -= b[(y - r - 1) * W + x]; if (y >= 0) a[y * W + x] = acc / (2 * r + 1); } }
-  const nc = [1, 3, 5].map(i => parseInt(p.bg.slice(i, i + 2), 16));
-  const out = new ImageData(W, H), o = out.data;
-  for (let i = 0, n = 0; n < W * H; n++, i += 4) {
-    const m = a[n];
-    o[i] = px[i] * (1 - m) + nc[0] * m; o[i + 1] = px[i + 1] * (1 - m) + nc[1] * m; o[i + 2] = px[i + 2] * (1 - m) + nc[2] * m; o[i + 3] = 255;
+  return blur(mask, W, H, Math.max(1, Math.round(Math.min(W, H) / 400)));
+}
+function blur(a, W, H, r) {
+  const b = new Float32Array(W * H), d = 2 * r + 1;
+  for (let y = 0; y < H; y++) { let acc = 0; for (let x = -r; x < W; x++) { if (x + r < W) acc += a[y * W + x + r]; if (x - r - 1 >= 0) acc -= a[y * W + x - r - 1]; if (x >= 0) b[y * W + x] = acc / d; } }
+  for (let x = 0; x < W; x++) { let acc = 0; for (let y = -r; y < H; y++) { if (y + r < H) acc += b[(y + r) * W + x]; if (y - r - 1 >= 0) acc -= b[(y - r - 1) * W + x]; if (y >= 0) a[y * W + x] = acc / d; } }
+  return a;
+}
+function bgSrc(p) {
+  const base = baseSrc(p);
+  if (!p.bg) return base;
+  let mask;
+  if (p.bgMode === 'ai') {
+    if (!p._ai || p._ai.key !== geoKey(p)) { cutOut(p); return base; }   // shows the photo as-is until the cut-out is ready
+    mask = p._ai.mask;
   }
-  const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').putImageData(out, 0, 0);
+  const key = [p.bg, p.bgMode, p.tol, geoKey(p), toneKey(p)].join('|');
+  if (p._bgKey === key) return p._bg;
+  const W = base.width, H = base.height;
+  if (!mask) mask = wallMask(base, p.tol);
+  const nc = [1, 3, 5].map(i => parseInt(p.bg.slice(i, i + 2), 16));
+  const ctx = base.getContext('2d'), d = ctx.getImageData(0, 0, W, H), px = d.data;
+  for (let i = 0, n = 0; n < W * H; n++, i += 4) {
+    const m = mask[n];
+    px[i] = px[i] * (1 - m) + nc[0] * m; px[i + 1] = px[i + 1] * (1 - m) + nc[1] * m; px[i + 2] = px[i + 2] * (1 - m) + nc[2] * m; px[i + 3] = 255;
+  }
+  const c = newCanvas(W, H); c.getContext('2d').putImageData(d, 0, 0);
   p._bgKey = key; p._bg = c;
   return c;
 }
 
+/* ---------- on-device AI (MediaPipe, loaded only when first needed) ---------- */
+const MP = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const MODELS = 'https://storage.googleapis.com/mediapipe-models';
+let aiPromise = null;
+function loadAI() {
+  aiPromise ??= (async () => {
+    const v = await import(`${MP}/vision_bundle.mjs`);
+    const files = await v.FilesetResolver.forVisionTasks(`${MP}/wasm`);
+    const [seg, face] = await Promise.all([
+      v.ImageSegmenter.createFromOptions(files, { baseOptions: { modelAssetPath: `${MODELS}/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite`, delegate: 'CPU' }, runningMode: 'IMAGE', outputConfidenceMasks: true, outputCategoryMask: false }),
+      v.FaceDetector.createFromOptions(files, { baseOptions: { modelAssetPath: `${MODELS}/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite`, delegate: 'CPU' }, runningMode: 'IMAGE', minDetectionConfidence: .5 }),
+    ]);
+    return { seg, face };
+  })();
+  aiPromise.catch(() => { aiPromise = null; });
+  return aiPromise;
+}
+async function cutOut(p) {
+  const key = geoKey(p);
+  if (p._aiBusy === key) return;
+  p._aiBusy = key; setStatus(p, 'Cutting out the person… (first time downloads about 10 MB)');
+  try {
+    const { seg } = await loadAI();
+    const src = rotatedOnly(p);
+    const r = seg.segment(src), m = r.confidenceMasks[r.confidenceMasks.length - 1];
+    const mw = m.width, mh = m.height, raw = m.getAsFloat32Array().slice();
+    r.close?.();
+    // the model's output is "person"; flip it if the border reads as person (a background channel)
+    let edge = 0; for (let x = 0; x < mw; x++) edge += raw[x]; if (edge / mw > .5) for (let i = 0; i < raw.length; i++) raw[i] = 1 - raw[i];
+    const W = src.width, H = src.height, mask = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const v = raw[Math.min(mh - 1, (y * mh / H) | 0) * mw + Math.min(mw - 1, (x * mw / W) | 0)];
+      const t = clamp((v - .35) / .3, 0, 1); mask[y * W + x] = 1 - t * t * (3 - 2 * t);   // background amount, soft edge
+    }
+    p._ai = { key, mask: blur(mask, W, H, Math.max(1, Math.round(Math.min(W, H) / 300))) };
+    setStatus(p, '');
+  } catch (e) {
+    p.bgMode = 'wall'; setStatus(p, '');
+    toast('AI cut-out could not load (check the internet), so the plain-wall method is used');
+  }
+  p._aiBusy = null; p._bgKey = null;
+  refreshItem(p, true); update();
+  if (adj === p) drawAdjust();
+  if (p === form.item) renderForm();
+}
+// same geometry as baseSrc but without tone changes, so the mask fits whatever tone is applied later
+function rotatedOnly(p) { const t = { ...p, bright: 0, contrast: 0, sat: 0, _baseKey: null }; return baseSrc(t); }
+async function fitFace(p) {
+  const { face } = await loadAI();
+  const src = baseSrc(p), r = face.detect(src);
+  const d = (r.detections || []).map(x => x.boundingBox).sort((a, b) => b.width * b.height - a.width * a.height)[0];
+  if (!d) return false;
+  // passport framing: the detected face box fills about 55% of the frame height, a little above centre
+  const a = p.w / p.h, sh0 = Math.min(src.height, src.width / a), want = d.height / .55;
+  p.zoom = clamp(sh0 / want, 1, 4);
+  p.fx = clamp((d.originX + d.width / 2) / src.width, 0, 1);
+  p.fy = clamp((d.originY + d.height / 2 + .04 * want) / src.height, 0, 1);
+  return true;
+}
+function setStatus(p, msg) {
+  const el = document.querySelector(`.item[data-id="${p.id}"] .status`); if (el) el.textContent = msg;
+  if (adj === p) $('#adjStatus').textContent = msg;
+}
+
 /* ---------- drawing one photo ---------- */
-function drawPhoto(ctx, p, x, y, w, h) {
-  const src = p.bg ? replaceBg(p) : p.src;
+function drawPhoto(ctx, p, x, y, w, h, opts = {}) {
+  const src = bgSrc(p);
   // cover-crop: zoom and focus point decide which part of the source fills the frame
   const scale = Math.max(w / src.width, h / src.height) * p.zoom;
   const sw = w / scale, sh = h / scale;
-  const sx = Math.min(src.width - sw, Math.max(0, p.fx * src.width - sw / 2));
-  const sy = Math.min(src.height - sh, Math.max(0, p.fy * src.height - sh / 2));
+  const sx = clamp(p.fx * src.width - sw / 2, 0, src.width - sw);
+  const sy = clamp(p.fy * src.height - sh / 2, 0, src.height - sh);
   ctx.save();
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(src, sx, sy, sw, sh, x, y, w, h);
@@ -379,15 +608,23 @@ function drawPhoto(ctx, p, x, y, w, h) {
       ctx.fillText(t.toUpperCase(), x + w / 2, y + h - band + lh * (i + .55));
     });
   }
+  if (opts.border && opts.border !== 'none') {
+    const lw = Math.max(1, .5 * opts.pxPerMm);
+    ctx.strokeStyle = opts.border === 'white' ? '#fff' : '#000'; ctx.lineWidth = lw;
+    ctx.strokeRect(x + lw / 2, y + lw / 2, w - lw, h - lw);
+  }
   ctx.restore();
 }
 
 /* ---------- sheet layout (mm) ---------- */
-function paper() { return PAPERS.find(p => p.id === layout.paper) || PAPERS[0]; }
+function paper() {
+  const P = PAPERS.find(p => p.id === layout.paper) || PAPERS[0];
+  return layout.orient === 'landscape' ? { ...P, w: P.h, h: P.w } : P;
+}
 function computePages() {
   const P = paper(), { gapX, gapY, mTop, mLeft } = layout;
   const right = P.w - mLeft, bottom = P.h - mTop;
-  const out = []; let cur = [], x = mLeft, y = mTop, rowH = 0, tooBig = [];
+  const out = []; let cur = [], x = mLeft, y = mTop, rowH = 0; const tooBig = [];
   for (const p of photos) {
     if (p.w > right - mLeft + .01 || p.h > bottom - mTop + .01) { tooBig.push(p); continue; }
     for (let k = 0; k < p.copies; k++) {
@@ -403,7 +640,7 @@ function computePages() {
 function drawPage(ctx, items, pxPerMm) {
   const P = paper();
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, P.w * pxPerMm, P.h * pxPerMm);
-  for (const it of items) drawPhoto(ctx, it.p, it.x * pxPerMm, it.y * pxPerMm, it.p.w * pxPerMm, it.p.h * pxPerMm);
+  for (const it of items) drawPhoto(ctx, it.p, it.x * pxPerMm, it.y * pxPerMm, it.p.w * pxPerMm, it.p.h * pxPerMm, { border: layout.border, pxPerMm });
   if (layout.cut) {
     ctx.save();
     ctx.strokeStyle = '#7a7f93'; ctx.lineWidth = Math.max(1, .2 * pxPerMm); ctx.setLineDash([1.6 * pxPerMm, 1 * pxPerMm]);
@@ -416,17 +653,19 @@ function drawPage(ctx, items, pxPerMm) {
 
 /* ---------- preview ---------- */
 let raf = 0;
-function update() { cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); }
+function update() { cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); persist(); }
 function paint() {
   const r = computePages(); pages = r.pages;
   page = Math.min(page, Math.max(0, pages.length - 1));
   const total = photos.reduce((a, p) => a + (r.tooBig.includes(p) ? 0 : p.copies), 0);
   const has = pages.length > 0;
   $('#pv').hidden = !has; $('#pvEmpty').hidden = has; $('#pager').hidden = pages.length < 2;
-  $('#print').disabled = $('#download').disabled = !has;
+  $('#print').disabled = $('#download').disabled = $('#fill').disabled = !has;
   $('#pMeta').textContent = has ? `${total} photo${total === 1 ? '' : 's'} · ${pages.length} page${pages.length === 1 ? '' : 's'}` : '';
   $('#pageLbl').textContent = `Page ${page + 1} / ${pages.length}`;
   $('#prev').disabled = page === 0; $('#next').disabled = page >= pages.length - 1;
+  const last = photos[photos.length - 1];
+  $('#fill').textContent = last ? `Fill empty space with “${last.name}”` : 'Fill empty space';
   const tb = $('#tooBig'); tb.hidden = !r.tooBig.length;
   if (r.tooBig.length) tb.textContent = `${r.tooBig.map(p => p.name).join(', ')} ${r.tooBig.length > 1 ? 'are' : 'is'} bigger than this paper, so ${r.tooBig.length > 1 ? 'they are' : 'it is'} left out. Choose bigger paper or smaller margins.`;
   if (!has) return;
@@ -451,7 +690,7 @@ function renderQueue() {
 }
 function drawThumb(p) {
   const c = document.querySelector(`.item[data-id="${p.id}"] .thumb canvas`); if (!c) return;
-  const box = 64, k = Math.min(box / p.w, 76 / p.h), w = Math.round(p.w * k * 2), h = Math.round(p.h * k * 2);
+  const k = Math.min(64 / p.w, 76 / p.h), w = Math.round(p.w * k * 2), h = Math.round(p.h * k * 2);
   c.width = w; c.height = h; drawPhoto(c.getContext('2d'), p, 0, 0, w, h);
 }
 function itemHTML(p) {
@@ -461,7 +700,7 @@ function itemHTML(p) {
   const capOn = p.cap.name.trim() || p.cap.dob.trim();
   const isNew = !p.shown; p.shown = true;   // slide in only when first added
   return `<li class="item${isOpen ? ' open' : ''}${isNew ? ' new' : ''}" data-id="${p.id}">
-    <button class="thumb" data-act="adjust" aria-label="Move and zoom ${esc(p.name)}"><canvas></canvas><span class="eye">${ico('eye')}</span></button>
+    <button class="thumb" data-act="adjust" aria-label="Edit ${esc(p.name)}"><canvas></canvas><span class="eye">${ico('eye')}</span></button>
     <div class="body">
       <div class="row">
         <button class="chip" data-act="panel" data-panel="size" aria-expanded="${isOpen && open.panel === 'size'}" aria-label="Photo size ${sizeLabel(p)}, change">${sizeLabel(p)} ${ico('pen')}</button>
@@ -473,6 +712,7 @@ function itemHTML(p) {
         <button class="pill" data-act="panel" data-panel="bg" aria-expanded="${isOpen && open.panel === 'bg'}">${p.bg ? `<i class="sw" style="background:${p.bg}"></i>` : ico('brush')}${p.bg ? bgName + ' background' : 'Background colour'}</button>
         <button class="pill" data-act="panel" data-panel="cap" aria-expanded="${isOpen && open.panel === 'cap'}">${ico('text')}${capOn ? 'Edit name & DOB' : 'Name & DOB'}</button>
       </div>
+      <p class="status" role="status">${p._aiBusy ? 'Cutting out the person…' : ''}</p>
     </div>
     <div class="tools">
       <button class="tool" data-act="reset" title="Undo all changes to this photo" aria-label="Reset ${esc(p.name)}">${ico('reset')}</button>
@@ -499,8 +739,9 @@ function editorHTML(p, panel) {
   }
   if (panel === 'bg') return `<div class="editor">
       <div class="swatches">${BGS.map(b => `<button class="swatch${b.id ? '' : ' orig'}" data-act="bg" data-bg="${b.id}" aria-pressed="${p.bg === b.id}"><span style="${b.id ? 'background:' + b.id : ''}"></span>${b.name}</button>`).join('')}</div>
-      <label class="range"${p.bg ? '' : ' hidden'}><span class="top">How much of the wall to replace <b>${p.tol}</b></span><input type="range" min="8" max="80" step="1" data-in="tol" value="${p.tol}"></label>
-      <div class="ed-foot"><span class="hint">Works best when the photo was taken against a plain wall.</span><button class="btn dark" data-act="close">Done</button></div>
+      <div class="seg" role="group" aria-label="Method"${p.bg ? '' : ' hidden'}><button data-act="mode" data-mode="ai" aria-pressed="${p.bgMode === 'ai'}">AI cut-out (any background)</button><button data-act="mode" data-mode="wall" aria-pressed="${p.bgMode === 'wall'}">Plain wall</button></div>
+      <label class="range"${p.bg && p.bgMode === 'wall' ? '' : ' hidden'}><span class="top">How much of the wall to replace <b>${p.tol}</b></span><input type="range" min="8" max="80" step="1" data-in="tol" value="${p.tol}"></label>
+      <div class="ed-foot"><span class="hint">${p.bgMode === 'ai' ? 'The AI runs on this device; the photo is not uploaded.' : 'Works best when the photo was taken against a plain wall.'}</span><button class="btn dark" data-act="close">Done</button></div>
     </div>`;
   return `<div class="editor">
       <div class="fields">
@@ -524,15 +765,16 @@ $('#queue').addEventListener('click', e => {
   const li = b.closest('.item'), p = byId(+li.dataset.id), a = b.dataset.act;
   if (a === 'panel') { open = open && open.id === p.id && open.panel === b.dataset.panel ? null : { id: p.id, panel: b.dataset.panel }; renderQueue(); return; }
   if (a === 'close') { open = null; refreshItem(p); return; }
-  if (a === 'copies') { p.copies = Math.max(1, Math.min(99, p.copies + +b.dataset.d)); refreshItem(p); update(); return; }
+  if (a === 'copies') { p.copies = clamp(p.copies + +b.dataset.d, 1, 500); refreshItem(p); update(); return; }
   if (a === 'preset') { const s = PRESETS.find(s => s.id === b.dataset.preset); p.w = s.w; p.h = s.h; refreshItem(p); update(); return; }
   if (a === 'custom') { const el = li.querySelector('[data-in="w"]'); el.focus(); el.select(); return; }
   if (a === 'unit') { unit = b.dataset.unit; store.set('unit', unit); renderQueue(); return; }
-  if (a === 'bg') { p.bg = b.dataset.bg; p.ver++; refreshItem(p); update(); return; }
-  if (a === 'reset') { Object.assign(p, { w: defSize.w, h: defSize.h, copies: defSize.copies, bg: '', tol: 32, cap: { name: '', dob: '' }, zoom: 1, fx: .5, fy: .42 }); p.ver++; refreshItem(p); update(); toast('Photo reset'); return; }
+  if (a === 'bg') { p.bg = b.dataset.bg; refreshItem(p); update(); return; }
+  if (a === 'mode') { p.bgMode = b.dataset.mode; refreshItem(p); update(); return; }
+  if (a === 'reset') { Object.assign(p, { w: defSize.w, h: defSize.h, copies: defSize.copies, bg: '', bgMode: 'ai', tol: 32, cap: { name: '', dob: '' }, ...EDIT_DEFAULT }); refreshItem(p); update(); toast('Photo reset'); return; }
   if (a === 'default') { defSize = { w: p.w, h: p.h, copies: p.copies }; store.set('defSize', defSize); renderQueue(); toast(`New photos will start at ${sizeLabel(p)}, ${p.copies} copies`); return; }
   if (a === 'save') { saveSingle(p); return; }
-  if (a === 'del') { photos.splice(photos.indexOf(p), 1); if (open && open.id === p.id) open = null; renderQueue(); update(); return; }
+  if (a === 'del') { photos.splice(photos.indexOf(p), 1); if (open && open.id === p.id) open = null; dbDel(p.id); renderQueue(); update(); refreshFormFrom(); return; }
   if (a === 'adjust') { openAdjust(p); }
 });
 $('#queue').addEventListener('input', e => {
@@ -540,7 +782,7 @@ $('#queue').addEventListener('input', e => {
   const p = byId(+e.target.closest('.item').dataset.id);
   if (k === 'w' || k === 'h') {
     const v = parseFloat(e.target.value); if (!(v > 0)) return;
-    p[k] = Math.max(5, Math.min(300, unit === 'cm' ? v * 10 : v * MM_PER_IN));
+    p[k] = clamp(unit === 'cm' ? v * 10 : v * MM_PER_IN, 5, 400);
     const chip = e.target.closest('.item').querySelector('.chip'); chip.firstChild.textContent = sizeLabel(p) + ' ';
     e.target.closest('.editor').querySelectorAll('.preset').forEach(b => b.setAttribute('aria-pressed', b.dataset.act === 'custom' ? !PRESETS.some(s => s.w === p.w && s.h === p.h) : PRESETS.some(s => s.id === b.dataset.preset && s.w === p.w && s.h === p.h)));
     drawThumb(p);
@@ -556,61 +798,109 @@ $('#file').addEventListener('change', e => { addFiles(e.target.files); e.target.
 document.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length) { e.preventDefault(); addFiles(e.dataTransfer.files); } });
 document.addEventListener('paste', e => {
   const files = [...(e.clipboardData?.items || [])].filter(i => i.kind === 'file').map(i => i.getAsFile()).filter(Boolean);
-  if (files.length) { e.preventDefault(); addFiles(files); }
+  if (!files.length) return;
+  e.preventDefault();
+  // pasting while in the form tool sends the image there
+  if ($('#formTool').contains(document.activeElement) || $('#formTool').matches(':hover')) formLoadFile(files[0]); else addFiles(files);
 });
-$('#clearQ').addEventListener('click', () => { if (!confirm(`Remove all ${photos.length} photos from the queue?`)) return; photos.length = 0; open = null; renderQueue(); update(); });
+$('#clearQ').addEventListener('click', () => { if (!confirm(`Remove all ${photos.length} photos from the queue?`)) return; photos.length = 0; open = null; dbClear(); renderQueue(); update(); refreshFormFrom(); });
+$('#fitAll').addEventListener('click', async () => {
+  const btn = $('#fitAll'); btn.disabled = true; btn.textContent = 'Finding faces…';
+  let ok = 0;
+  try { for (const p of photos) if (await fitFace(p)) ok++; }
+  catch { toast('Face finder could not load. Check the internet and try again.'); }
+  btn.disabled = false; btn.textContent = 'Auto-fit all faces';
+  if (ok) { renderQueue(); update(); toast(`Fitted ${ok} of ${photos.length} face${photos.length === 1 ? '' : 's'}`); } else if (aiPromise) toast('No face found');
+});
 
 /* layout controls */
 const paperSel = $('#paper');
 paperSel.innerHTML = PAPERS.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+$('#ready').innerHTML = READY.map((r, i) => `<button data-ready="${i}">${r.name}<small>${r.sub}</small></button>`).join('');
 function syncControls() {
-  paperSel.value = layout.paper; $('#cut').checked = layout.cut;
+  paperSel.value = layout.paper; $('#cut').checked = layout.cut; $('#border').value = layout.border;
+  document.querySelectorAll('[data-orient]').forEach(b => b.setAttribute('aria-pressed', b.dataset.orient === layout.orient));
   for (const k of ['gapX', 'gapY', 'mTop', 'mLeft']) { $('#' + k).value = layout[k]; $('#' + k + 'v').textContent = layout[k] + ' mm'; }
 }
 function setLayout(patch) { Object.assign(layout, patch); store.set('layout', layout); syncControls(); update(); }
 paperSel.addEventListener('change', () => { page = 0; setLayout({ paper: paperSel.value }); });
 $('#cut').addEventListener('change', e => setLayout({ cut: e.target.checked }));
+$('#border').addEventListener('change', e => setLayout({ border: e.target.value }));
+document.querySelectorAll('[data-orient]').forEach(b => b.addEventListener('click', () => { page = 0; setLayout({ orient: b.dataset.orient }); }));
 for (const k of ['gapX', 'gapY', 'mTop', 'mLeft']) $('#' + k).addEventListener('input', e => setLayout({ [k]: +e.target.value }));
-$('#resetLayout').addEventListener('click', () => setLayout({ ...LAYOUT_DEFAULT, paper: layout.paper }));
+$('#resetLayout').addEventListener('click', () => setLayout({ ...LAYOUT_DEFAULT, paper: layout.paper, orient: layout.orient, border: layout.border }));
 $('#prev').addEventListener('click', () => { page--; update(); });
 $('#next').addEventListener('click', () => { page++; update(); });
+$('#ready').addEventListener('click', e => {
+  const b = e.target.closest('[data-ready]'); if (!b) return;
+  const r = READY[+b.dataset.ready], n = photos.length;
+  page = 0;
+  setLayout({ paper: r.paper, orient: r.orient, gapX: r.gapX, gapY: r.gapY, mTop: r.mTop, mLeft: r.mLeft });
+  if (!n) { toast('Sheet set up. Now add a photo.'); return; }
+  // split the sheet evenly between the photos in the queue
+  photos.forEach((p, i) => { p.w = r.w; p.h = r.h; p.copies = Math.max(1, Math.floor(r.count / n) + (i < r.count % n ? 1 : 0)); });
+  renderQueue(); update();
+  toast(n === 1 ? `${r.count} copies on ${PAPERS.find(x => x.id === r.paper).name.split(' (')[0]}` : `${r.count} photos shared between ${n} people`);
+});
+$('#fill').addEventListener('click', () => {
+  const p = photos[photos.length - 1]; if (!p) return;
+  const before = computePages().pages.length; let added = 0;
+  while (added < 500) { p.copies++; if (computePages().pages.length > before) { p.copies--; break; } added++; }
+  if (!added) { toast('The last page is already full'); return; }
+  refreshItem(p); update(); toast(`Added ${added} more cop${added === 1 ? 'y' : 'ies'} of “${p.name}”`);
+});
 addEventListener('resize', update);
 
-/* ---------- adjust dialog: drag to move, slider to zoom ---------- */
+/* ---------- edit dialog: move, zoom, rotate, straighten, tone, auto face ---------- */
 const dlg = $('#adjust'), ac = $('#adjCanvas');
 let adj = null;
+const SLIDERS = { zoom: v => Math.round(v * 100) + '%', tilt: v => v + '°', bright: v => (v > 0 ? '+' : '') + v, contrast: v => (v > 0 ? '+' : '') + v, sat: v => (v > 0 ? '+' : '') + v };
 function openAdjust(p) {
   adj = p;
-  const k = Math.min(300 / p.w, 380 / p.h);
+  const k = Math.min(300 / p.w, 340 / p.h);
   ac.width = Math.round(p.w * k * 2); ac.height = Math.round(p.h * k * 2);
   ac.style.width = Math.round(p.w * k) + 'px'; ac.style.height = Math.round(p.h * k) + 'px';
-  $('#zoom').value = p.zoom; drawAdjust(); dlg.showModal();
+  $('#adjStatus').textContent = '';
+  syncAdjust(); drawAdjust(); dlg.showModal();
 }
+function syncAdjust() { for (const k in SLIDERS) { $('#' + k).value = adj[k]; $('#' + k + 'V').textContent = SLIDERS[k](adj[k]); } }
 function drawAdjust() {
   const ctx = ac.getContext('2d'); ctx.clearRect(0, 0, ac.width, ac.height);
   drawPhoto(ctx, adj, 0, 0, ac.width, ac.height);
-  $('#zoomV').textContent = Math.round(adj.zoom * 100) + '%';
 }
+for (const k in SLIDERS) $('#' + k).addEventListener('input', e => { adj[k] = +e.target.value; $('#' + k + 'V').textContent = SLIDERS[k](adj[k]); drawAdjust(); });
 let drag = null;
 ac.addEventListener('pointerdown', e => { ac.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, fx: adj.fx, fy: adj.fy }; });
 ac.addEventListener('pointermove', e => {
   if (!drag) return;
-  const src = adj.bg ? replaceBg(adj) : adj.src, r = ac.getBoundingClientRect();
+  const src = bgSrc(adj), r = ac.getBoundingClientRect();
   const scale = Math.max(r.width / src.width, r.height / src.height) * adj.zoom;   // screen px per source px
-  adj.fx = Math.min(1, Math.max(0, drag.fx - (e.clientX - drag.x) / scale / src.width));
-  adj.fy = Math.min(1, Math.max(0, drag.fy - (e.clientY - drag.y) / scale / src.height));
+  adj.fx = clamp(drag.fx - (e.clientX - drag.x) / scale / src.width, 0, 1);
+  adj.fy = clamp(drag.fy - (e.clientY - drag.y) / scale / src.height, 0, 1);
   drawAdjust();
 });
 ac.addEventListener('pointerup', () => { drag = null; });
-$('#zoom').addEventListener('input', e => { adj.zoom = +e.target.value; drawAdjust(); });
-$('#adjReset').addEventListener('click', () => { Object.assign(adj, { zoom: 1, fx: .5, fy: .42 }); $('#zoom').value = 1; drawAdjust(); });
-dlg.addEventListener('close', () => { if (adj) { drawThumb(adj); update(); } });
+$('#adjRotL').addEventListener('click', () => { adj.rot -= 90; drawAdjust(); });
+$('#adjRotR').addEventListener('click', () => { adj.rot += 90; drawAdjust(); });
+$('#adjAuto').addEventListener('click', () => { autoEnhance(adj); syncAdjust(); drawAdjust(); });
+$('#adjFace').addEventListener('click', async () => {
+  $('#adjStatus').textContent = 'Finding the face… (first time downloads about 10 MB)';
+  const st = $('#adjStatus'); st.className = 'status';
+  try { if (!await fitFace(adj)) { st.textContent = 'No face found. Drag and zoom by hand.'; st.className = 'status err'; } else st.textContent = ''; }
+  catch { st.textContent = 'Face finder could not load. Check the internet and try again.'; st.className = 'status err'; }
+  syncAdjust(); drawAdjust();
+});
+$('#adjReset').addEventListener('click', () => { Object.assign(adj, EDIT_DEFAULT); syncAdjust(); drawAdjust(); });
+dlg.addEventListener('close', () => {
+  if (!adj) return;
+  if (adj === form.item) renderForm(); else { refreshItem(adj); update(); }
+  adj = null;
+});
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
 
 /* ---------- export ---------- */
 function pageCanvas(items) {
-  const P = paper(), c = document.createElement('canvas');
-  c.width = Math.round(P.w * PX_PER_MM); c.height = Math.round(P.h * PX_PER_MM);
+  const P = paper(), c = newCanvas(Math.round(P.w * PX_PER_MM), Math.round(P.h * PX_PER_MM));
   drawPage(c.getContext('2d'), items, PX_PER_MM); return c;
 }
 const toBlob = (c, q = .93) => new Promise(r => c.toBlob(r, 'image/jpeg', q));
@@ -624,11 +914,10 @@ function saveAs(blob, name) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
 }
 async function saveSingle(p) {
-  const c = document.createElement('canvas'); c.width = Math.round(p.w * PX_PER_MM); c.height = Math.round(p.h * PX_PER_MM);
+  const c = newCanvas(Math.round(p.w * PX_PER_MM), Math.round(p.h * PX_PER_MM));
   drawPhoto(c.getContext('2d'), p, 0, 0, c.width, c.height);
   saveAs(await toBlob(c, .95), `${p.name}-${fmtLen(p.w)}x${fmtLen(p.h)}${unit}.jpg`);
 }
-
 // Minimal PDF writer: one full-page JPEG per page, sized exactly to the paper.
 async function makePDF(jpegs, wMm, hMm) {
   const enc = new TextEncoder(), parts = [], offsets = [];
@@ -649,7 +938,7 @@ async function makePDF(jpegs, wMm, hMm) {
   const xref = len, count = 3 + n * 3;
   push(`xref\n0 ${count}\n0000000000 65535 f \n`);
   for (let i = 1; i < count; i++) push(String(offsets[i]).padStart(10, '0') + ' 00000 n \n');
-  push(`trailer\n<< /Size ${count} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  push(`trailer\n<< /Size ${count} /Root 1 0 R /Info << /Producer (Photo Print Sheet Maker by Mahesh Surada) >> >>\nstartxref\n${xref}\n%%EOF`);
   return new Blob(parts, { type: 'application/pdf' });
 }
 $('#download').addEventListener('click', () => withBusy('Making your PDF…', async () => {
@@ -667,11 +956,145 @@ $('#print').addEventListener('click', () => withBusy('Preparing to print…', as
   const urls = [];
   for (const items of pages) urls.push(URL.createObjectURL(await toBlob(pageCanvas(items))));
   area.innerHTML = urls.map(u => `<img src="${u}" alt="">`).join('');
-  await Promise.all([...area.images ?? area.querySelectorAll('img')].map(i => i.decode().catch(() => {})));
+  await Promise.all([...area.querySelectorAll('img')].map(i => i.decode().catch(() => {})));
   setTimeout(() => { print(); setTimeout(() => { urls.forEach(URL.revokeObjectURL); area.innerHTML = ''; }, 1000); }, 50);
 }));
 
-syncControls(); renderQueue(); update();
+/* ---------- keep work: the queue is saved in this browser (IndexedDB) ---------- */
+let dbP = null;
+function db() {
+  dbP ??= new Promise((res, rej) => { const r = indexedDB.open('photo-print-tool', 1); r.onupgradeneeded = () => r.result.createObjectStore('photos', { keyPath: 'id' }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  return dbP;
+}
+async function tx(mode, fn) { const d = await db(); return new Promise((res, rej) => { const t = d.transaction('photos', mode), s = t.objectStore('photos'); const r = fn(s); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); }); }
+const FIELDS = ['name', 'w', 'h', 'copies', 'bg', 'bgMode', 'tol', 'cap', ...Object.keys(EDIT_DEFAULT)];
+let saveT = 0;
+function persist() {
+  clearTimeout(saveT);
+  saveT = setTimeout(async () => {
+    try {
+      for (const [i, p] of photos.entries()) {
+        p._blob ??= await toBlob(p.src, .92);
+        const rec = { id: p.id, order: i, blob: p._blob };
+        for (const f of FIELDS) rec[f] = p[f];
+        await tx('readwrite', s => s.put(rec));
+      }
+    } catch {}
+  }, 600);
+}
+const dbDel = id => tx('readwrite', s => s.delete(id)).catch(() => {});
+const dbClear = () => tx('readwrite', s => s.clear()).catch(() => {});
+async function restore() {
+  try {
+    const recs = (await tx('readonly', s => s.getAll())) || [];
+    recs.sort((a, b) => a.order - b.order);
+    for (const r of recs) {
+      const c = await fileToCanvas(r.blob);
+      const p = makePhoto(r.name, c); p.id = r.id; p._blob = r.blob;
+      for (const f of FIELDS) if (r[f] !== undefined) p[f] = r[f];
+      photos.push(p); uid = Math.max(uid, r.id);
+    }
+    if (recs.length) { renderQueue(); update(); refreshFormFrom(); toast(`Welcome back: ${recs.length} photo${recs.length === 1 ? '' : 's'} restored`); }
+  } catch {}
+}
+
+/* ---------- exam form photo & signature resizer ---------- */
+const form = { kind: 'photo', item: null, blob: null };
+const fPreset = $('#fPreset');
+function fillPresets() {
+  fPreset.innerHTML = FORM_PRESETS[form.kind].map((p, i) => `<option value="${i}">${p.name}</option>`).join('');
+  applyPreset(0);
+  $('#fCleanWrap').hidden = form.kind !== 'sign';
+  $('#fPick').textContent = form.kind === 'sign' ? 'Choose a signature' : 'Choose a photo';
+  $('#fFromWrap').hidden = form.kind === 'sign';
+}
+function applyPreset(i) {
+  const p = FORM_PRESETS[form.kind][i]; fPreset.value = i;
+  if (!p.custom) { $('#fW').value = p.w; $('#fH').value = p.h; $('#fMin').value = p.min; $('#fMax').value = p.max; }
+  renderForm();
+}
+function refreshFormFrom() {
+  $('#fFrom').innerHTML = '<option value="">—</option>' + photos.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+}
+async function formLoadFile(f) {
+  try { setFormItem(await fileToCanvas(f), f.name.replace(/\.[^.]+$/, '')); } catch { toast('Could not open that file'); }
+}
+function setFormItem(c, name, from) {
+  form.item = from ? { ...from, cap: { name: '', dob: '' } } : makePhoto(name, c, { fy: form.kind === 'sign' ? .5 : .42 });
+  form.item.id = -1;
+  $('#fEdit').disabled = false; renderForm();
+}
+// raise or lower JPEG quality until the file lands inside the KB range
+async function encodeInRange(c, minKB, maxKB) {
+  let lo = .05, hi = .98, best = null;
+  for (let i = 0; i < 9; i++) {
+    const q = (lo + hi) / 2, b = await toBlob(c, q);
+    if (b.size / 1024 > maxKB) hi = q; else { best = b; lo = q; }
+  }
+  best ??= await toBlob(c, .05);
+  if (best.size / 1024 < minKB) {
+    const top = await toBlob(c, .98); if (top.size / 1024 <= maxKB) best = top;
+    if (best.size / 1024 < minKB) {
+      // still too small: pad with a JPEG comment block (the picture is unchanged) so portals that check a minimum accept it
+      const buf = new Uint8Array(await best.arrayBuffer()), need = Math.ceil(minKB * 1024 - buf.length) + 64;
+      const segs = [], left = { n: need };
+      while (left.n > 0) { const len = Math.min(65533, left.n); const s = new Uint8Array(len + 2 + 2); s[0] = 0xFF; s[1] = 0xFE; s[2] = (len + 2) >> 8; s[3] = (len + 2) & 255; segs.push(s); left.n -= len; }
+      best = new Blob([buf.slice(0, 2), ...segs, buf.slice(2)], { type: 'image/jpeg' });
+    }
+  }
+  return best;
+}
+let formT = 0;
+function renderForm() { clearTimeout(formT); formT = setTimeout(renderFormNow, 120); }
+async function renderFormNow() {
+  const it = form.item, W = clamp(+$('#fW').value || 0, 20, 4000), H = clamp(+$('#fH').value || 0, 20, 4000);
+  const minKB = Math.max(0, +$('#fMin').value || 0), maxKB = Math.max(1, +$('#fMax').value || 1);
+  $('#fSave').disabled = true;
+  if (!it) return;
+  if (minKB >= maxKB) { $('#fFacts').innerHTML = '<span class="bad">Min size must be smaller than max size</span>'; return; }
+  it.w = W; it.h = H;   // ratio only; the crop frame follows these pixels
+  const c = newCanvas(W, H), ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+  drawPhoto(ctx, it, 0, 0, W, H);
+  if (form.kind === 'sign' && $('#fClean').checked) cleanSignature(ctx, W, H);
+  const blob = await encodeInRange(c, minKB, maxKB); form.blob = blob;
+  const kb = blob.size / 1024, inRange = kb >= minKB && kb <= maxKB;
+  const img = $('#fImg'); if (img.src) URL.revokeObjectURL(img.src); img.src = URL.createObjectURL(blob); img.hidden = false; $('#fEmpty').hidden = true;
+  $('#fFacts').innerHTML = `<span>${W} × ${H} px</span><span class="${inRange ? 'ok' : 'bad'}">${kb.toFixed(1)} KB ${inRange ? '✓' : '(outside the limit)'}</span><span>JPG</span>`;
+  $('#fSave').disabled = false;
+}
+// signatures: whiten the paper and darken the ink, using the page brightness as the threshold
+function cleanSignature(ctx, W, H) {
+  const d = ctx.getImageData(0, 0, W, H), px = d.data, lum = new Float32Array(W * H);
+  let sum = 0; for (let i = 0, n = 0; n < W * H; n++, i += 4) { lum[n] = .299 * px[i] + .587 * px[i + 1] + .114 * px[i + 2]; sum += lum[n]; }
+  const paperL = sum / (W * H), cut = paperL * .72;
+  for (let i = 0, n = 0; n < W * H; n++, i += 4) {
+    const t = clamp((lum[n] - cut * .6) / (cut - cut * .6), 0, 1), v = 255 * t;   // smooth ramp keeps strokes anti-aliased
+    px[i] = px[i + 1] = px[i + 2] = v < 255 ? v * .35 : 255;
+  }
+  ctx.putImageData(d, 0, 0);
+}
+document.querySelectorAll('#formTool [data-kind]').forEach(b => b.addEventListener('click', () => {
+  form.kind = b.dataset.kind; form.item = null; form.blob = null;
+  document.querySelectorAll('#formTool [data-kind]').forEach(x => x.setAttribute('aria-selected', x === b));
+  $('#fImg').hidden = true; $('#fEmpty').hidden = false; $('#fFacts').innerHTML = ''; $('#fEdit').disabled = true; $('#fSave').disabled = true;
+  fillPresets();
+}));
+fPreset.addEventListener('change', () => applyPreset(+fPreset.value));
+['fW', 'fH', 'fMin', 'fMax'].forEach(id => $('#' + id).addEventListener('input', () => { const c = FORM_PRESETS[form.kind].findIndex(p => p.custom); fPreset.value = c; renderForm(); }));
+$('#fClean').addEventListener('change', renderForm);
+$('#fFile').addEventListener('change', e => { if (e.target.files[0]) formLoadFile(e.target.files[0]); e.target.value = ''; });
+$('#fFrom').addEventListener('change', e => { const p = byId(+e.target.value); if (p) setFormItem(null, p.name, p); });
+$('#fEdit').addEventListener('click', () => form.item && openAdjust(form.item));
+$('#fSave').addEventListener('click', () => { if (form.blob) saveAs(form.blob, `${form.kind === 'sign' ? 'signature' : 'photo'}_${$('#fW').value}x${$('#fH').value}.jpg`); });
+
+/* ---------- install as an app ---------- */
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#installBtn').hidden = false; });
+$('#installBtn').addEventListener('click', async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('#installBtn').hidden = true; });
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
+syncControls(); fillPresets(); refreshFormFrom(); renderQueue(); update(); restore();
 </script>
 </body>
 </html>
