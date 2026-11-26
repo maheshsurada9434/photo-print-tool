@@ -11,7 +11,7 @@ try:
         pg.on('pageerror', lambda e: log.append('PAGEERROR ' + str(e)))
         pg.on('console', lambda m: m.type == 'error' and log.append('CONSOLE ' + m.text))
         pg.goto('http://localhost:8800/index.html'); pg.wait_for_timeout(1500)
-        pg.set_input_files('#file', ['face.jpg']); pg.wait_for_timeout(1000)
+        pg.set_input_files('#file', ['face.jpg']); pg.wait_for_timeout(1500); log.append('items=' + str(pg.locator('.item').count()) + ' toast=' + pg.locator('#toast').inner_text()); pg.screenshot(path='shots/0-loaded.png')
         pg.locator('.item').first.get_by_role('button', name='Background colour').click()
         pg.locator('.item').first.get_by_role('button', name='White').click()
         t0 = time.time()
